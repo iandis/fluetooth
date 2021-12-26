@@ -20,7 +20,7 @@ abstract class Fluetooth {
 
   Future<FluetoothDevice?> get connectedDevice;
 
-  void sendBytes(List<int> bytes);
+  Future<void> sendBytes(List<int> bytes);
 
-  void disconnect();
+  Future<void> disconnect();
 }
