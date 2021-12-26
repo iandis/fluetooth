@@ -33,8 +33,8 @@ class FluetoothImpl implements Fluetooth {
   }
 
   @override
-  void disconnect() {
-    _channel.invokeMethod<void>('disconnect');
+  Future<void> disconnect() {
+    return _channel.invokeMethod<bool>('disconnect');
   }
 
   @override
@@ -61,10 +61,10 @@ class FluetoothImpl implements Fluetooth {
   }
 
   @override
-  void sendBytes(List<int> bytes) {
+  Future<void> sendBytes(List<int> bytes) {
     final Map<String, dynamic> arguments = <String, dynamic>{
       'bytes': bytes is Uint8List ? bytes : Uint8List.fromList(bytes),
     };
-    _channel.invokeMethod<void>('sendBytes', arguments);
+    return _channel.invokeMethod<bool>('sendBytes', arguments);
   }
 }

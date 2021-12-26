@@ -3,11 +3,12 @@ package app.iandis.fluetooth
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
-import android.os.Handler
-import android.os.Looper
 import java.io.OutputStream
 import java.lang.Exception
-import java.util.*
+import java.util.UUID
+import java.util.concurrent.Executor
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class FluetoothManager(private val _adapter: BluetoothAdapter?) {
 
@@ -15,7 +16,9 @@ class FluetoothManager(private val _adapter: BluetoothAdapter?) {
     private val _uuid: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
     private var _connectedDevice: BluetoothDevice? = null
     private var _socket: BluetoothSocket? = null
-    private val _outputStream: OutputStream? get() = _socket?.outputStream
+    private var _outputStream: OutputStream? = null
+    private val _executorService: ExecutorService = Executors.newSingleThreadExecutor()
+    private val _executor: Executor = SerialExecutor(_executorService)
 
     /**
      * @return **true** when enabled, **false** when disabled, **null** when not supported
@@ -31,15 +34,7 @@ class FluetoothManager(private val _adapter: BluetoothAdapter?) {
         }
 
     val connectedDevice: Map<String, String>?
-        get() {
-            if (_connectedDevice == null) {
-                return null
-            }
-            val deviceMap: MutableMap<String, String> = mutableMapOf()
-            deviceMap["name"] = _connectedDevice!!.name
-            deviceMap["address"] = _connectedDevice!!.address
-            return deviceMap
-        }
+        get() = _connectedDevice?.toMap()
 
     fun getPairedDevices(): List<Map<String, String>> {
         val devicesMap: MutableList<Map<String, String>> = mutableListOf()
@@ -69,14 +64,16 @@ class FluetoothManager(private val _adapter: BluetoothAdapter?) {
         _outputStream!!.flush()
     }
 
-    fun send(bytes: ByteArray) {
-        Handler(Looper.getMainLooper()).post {
+    fun send(bytes: ByteArray, onComplete: () -> Unit) {
+        _executor.execute {
             _writeBytes(bytes)
             _flush()
+            onComplete()
         }
     }
 
-    fun connect(deviceAddress: String) {
+    @Synchronized
+    fun connect(deviceAddress: String, onResult: (BluetoothDevice?) -> Unit) {
         disconnect()
 
         val bondedDevices: Set<BluetoothDevice> = _adapter!!.bondedDevices
@@ -88,27 +85,40 @@ class FluetoothManager(private val _adapter: BluetoothAdapter?) {
                 }
             }
         }
-        try {
-            if (_connectedDevice != null) {
-                _socket = _connectedDevice!!.createRfcommSocketToServiceRecord(_uuid)
-                _socket!!.connect()
+
+        _executor.execute {
+            try {
+                if (_connectedDevice != null) {
+                    _socket = _connectedDevice!!.createRfcommSocketToServiceRecord(_uuid)
+                    _socket!!.connect()
+                    _outputStream = _socket!!.outputStream
+                }
+            } catch (_: Exception) {
+                _connectedDevice = null
+                if (_socket != null) {
+                    _outputStream?.close()
+                    _outputStream = null
+                    _socket!!.close()
+                    _socket = null
+                }
             }
-        } catch (_: Exception) {
-            _connectedDevice = null
-            if (_socket != null) {
-                _outputStream?.close()
-                _socket!!.close()
-                _socket = null
-            }
+
+            onResult(_connectedDevice)
         }
     }
 
     fun disconnect() {
         if (_socket != null) {
             _outputStream?.close()
+            _outputStream = null
             _socket!!.close()
             _socket = null
             _connectedDevice = null
         }
+    }
+
+    fun dispose() {
+        disconnect()
+        _executorService.shutdown()
     }
 }

@@ -52,22 +52,27 @@ class FluetoothPlugin : FlutterPlugin, MethodCallHandler {
                     if (_fluetoothManager!!.isAvailable != true) {
                         throw Exception("Bluetooth is not available.")
                     }
-                    if (_fluetoothManager!!.isConnected) {
-                        throw Exception("Already connected!")
-                    }
                     val targetDevice: Any = call.arguments
                     if (targetDevice is String) {
-                        _fluetoothManager!!.connect(targetDevice)
-                        val connectedDevice: Map<String, String> =
-                            _fluetoothManager!!.connectedDevice!!
-
-                        result.success(connectedDevice)
+                        _fluetoothManager!!.connect(targetDevice) { device ->
+                            val connectedDevice: Map<String, String>? = device?.toMap()
+                            if (connectedDevice != null) {
+                                result.success(connectedDevice)
+                            } else {
+                                result.error(
+                                    "FLUETOOTH_CONNECT_ERROR",
+                                    "Failed to connect to $targetDevice",
+                                    null
+                                )
+                            }
+                        }
                     } else {
                         throw IllegalArgumentException("targetDevice should be a string")
                     }
                 }
                 "disconnect" -> {
                     _fluetoothManager!!.disconnect()
+                    result.success(true)
                 }
                 "sendBytes" -> {
                     if (_fluetoothManager!!.isAvailable != true) {
@@ -79,7 +84,9 @@ class FluetoothPlugin : FlutterPlugin, MethodCallHandler {
                     val arguments: Any = call.arguments
                     if (arguments is Map<*, *>) {
                         val bytes: ByteArray = arguments["bytes"] as ByteArray
-                        _fluetoothManager!!.send(bytes)
+                        _fluetoothManager!!.send(bytes) {
+                            result.success(true)
+                        }
                     } else {
                         throw IllegalArgumentException("arguments should be a Map")
                     }
@@ -97,7 +104,7 @@ class FluetoothPlugin : FlutterPlugin, MethodCallHandler {
 
     override fun onDetachedFromEngine(@NonNull binding: FlutterPluginBinding) {
         _channel.setMethodCallHandler(null)
-        _fluetoothManager!!.disconnect()
+        _fluetoothManager!!.dispose()
         _fluetoothManager = null
     }
 }

@@ -19,7 +19,7 @@ class FluetoothImpl implements Fluetooth {
   }
 
   @override
-  void disconnect() {
+  Future<void> disconnect() {
     throw UnsupportedError('Fluetooth is not supported on this platform');
   }
 
@@ -39,7 +39,7 @@ class FluetoothImpl implements Fluetooth {
   }
 
   @override
-  void sendBytes(List<int> bytes) {
+  Future<void> sendBytes(List<int> bytes) {
     throw UnsupportedError('Fluetooth is not supported on this platform');
   }
 }
