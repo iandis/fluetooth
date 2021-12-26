@@ -2,30 +2,20 @@ package app.iandis.fluetooth
 
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket
-import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import java.io.OutputStream
 import java.lang.Exception
 import java.util.*
 
-class FluetoothManager(private val context: Context) {
+class FluetoothManager(private val _adapter: BluetoothAdapter?) {
 
     // Standard SerialPortService ID
     private val _uuid: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
-    private val _adapter: BluetoothAdapter?
     private var _connectedDevice: BluetoothDevice? = null
     private var _socket: BluetoothSocket? = null
-    private var _outputStream: OutputStream? = null
-
-    init {
-        val bluetoothManager: BluetoothManager? =
-            context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager?
-
-        _adapter = bluetoothManager?.adapter
-    }
+    private val _outputStream: OutputStream? get() = _socket?.outputStream
 
     /**
      * @return **true** when enabled, **false** when disabled, **null** when not supported
@@ -37,7 +27,7 @@ class FluetoothManager(private val context: Context) {
             if (_socket != null) {
                 return _socket!!.isConnected
             }
-            return false;
+            return false
         }
 
     val connectedDevice: Map<String, String>?
@@ -52,33 +42,37 @@ class FluetoothManager(private val context: Context) {
         }
 
     fun getPairedDevices(): List<Map<String, String>> {
-        val devicesMap: MutableList<Map<String, String>> = mutableListOf(mutableMapOf())
+        val devicesMap: MutableList<Map<String, String>> = mutableListOf()
         val bondedDevices: Set<BluetoothDevice> = _adapter!!.bondedDevices
         if (bondedDevices.isNotEmpty()) {
             for (device: BluetoothDevice in bondedDevices) {
                 val deviceMap: MutableMap<String, String> = mutableMapOf()
                 deviceMap["name"] = device.name
                 deviceMap["address"] = device.address
+                devicesMap.add(deviceMap)
             }
         }
         return devicesMap
     }
 
-    fun writeBytes(bytes: ByteArray) {
+    private fun _writeBytes(bytes: ByteArray) {
         if (_outputStream == null) {
             throw Exception("No device connected!")
         }
-        Handler(Looper.getMainLooper()).post {
-            _outputStream!!.write(bytes)
-        }
+        _outputStream!!.write(bytes)
     }
 
-    fun flush() {
+    private fun _flush() {
         if (_outputStream == null) {
             throw Exception("No device connected!")
         }
+        _outputStream!!.flush()
+    }
+
+    fun send(bytes: ByteArray) {
         Handler(Looper.getMainLooper()).post {
-            _outputStream!!.flush()
+            _writeBytes(bytes)
+            _flush()
         }
     }
 
@@ -94,18 +88,26 @@ class FluetoothManager(private val context: Context) {
                 }
             }
         }
-        if (_connectedDevice != null) {
-            _socket = _connectedDevice!!.createRfcommSocketToServiceRecord(_uuid)
-            _socket!!.connect()
+        try {
+            if (_connectedDevice != null) {
+                _socket = _connectedDevice!!.createRfcommSocketToServiceRecord(_uuid)
+                _socket!!.connect()
+            }
+        } catch (_: Exception) {
+            _connectedDevice = null
+            if (_socket != null) {
+                _outputStream?.close()
+                _socket!!.close()
+                _socket = null
+            }
         }
     }
 
     fun disconnect() {
         if (_socket != null) {
-            _socket!!.close()
             _outputStream?.close()
+            _socket!!.close()
             _socket = null
-            _outputStream = null
             _connectedDevice = null
         }
     }

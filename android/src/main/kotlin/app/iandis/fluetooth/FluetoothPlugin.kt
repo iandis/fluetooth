@@ -1,5 +1,7 @@
 package app.iandis.fluetooth
 
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
 import android.content.Context
 import androidx.annotation.NonNull
 
@@ -11,31 +13,31 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 
 class FluetoothPlugin : FlutterPlugin, MethodCallHandler {
-    private lateinit var channel: MethodChannel
-    private var _fluetoothManager: FluetoothManager? = null
-    private var _context: Context? = null
+    private val _channelName: String = "fluetooth/main"
 
-    companion object {
-        private const val _channelName: String = "fluetooth/main"
-    }
+    private lateinit var _channel: MethodChannel
+    private var _fluetoothManager: FluetoothManager? = null
 
     override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPluginBinding) {
-        channel = MethodChannel(flutterPluginBinding.binaryMessenger, _channelName)
-        channel.setMethodCallHandler(this)
-        _context = flutterPluginBinding.applicationContext
-        _fluetoothManager = FluetoothManager(_context!!)
+        _channel = MethodChannel(flutterPluginBinding.binaryMessenger, _channelName)
+        _channel.setMethodCallHandler(this)
+        val context: Context = flutterPluginBinding.applicationContext
+        val bluetoothManager: BluetoothManager? =
+            context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager?
+        val adapter: BluetoothAdapter? = bluetoothManager?.adapter
+        _fluetoothManager = FluetoothManager(adapter)
     }
 
     override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
         try {
             when (call.method) {
-                "isConnected" -> {
-                    val isConnected: Boolean = _fluetoothManager!!.isConnected
-                    result.success(isConnected)
-                }
                 "isAvailable" -> {
                     val isAvailable: Boolean? = _fluetoothManager!!.isAvailable
                     result.success(isAvailable)
+                }
+                "isConnected" -> {
+                    val isConnected: Boolean = _fluetoothManager!!.isConnected
+                    result.success(isConnected)
                 }
                 "connectedDevice" -> {
                     val connectedDevice: Map<String, String>? = _fluetoothManager!!.connectedDevice
@@ -56,6 +58,10 @@ class FluetoothPlugin : FlutterPlugin, MethodCallHandler {
                     val targetDevice: Any = call.arguments
                     if (targetDevice is String) {
                         _fluetoothManager!!.connect(targetDevice)
+                        val connectedDevice: Map<String, String> =
+                            _fluetoothManager!!.connectedDevice!!
+
+                        result.success(connectedDevice)
                     } else {
                         throw IllegalArgumentException("targetDevice should be a string")
                     }
@@ -63,7 +69,7 @@ class FluetoothPlugin : FlutterPlugin, MethodCallHandler {
                 "disconnect" -> {
                     _fluetoothManager!!.disconnect()
                 }
-                "writeBytes" -> {
+                "sendBytes" -> {
                     if (_fluetoothManager!!.isAvailable != true) {
                         throw Exception("Bluetooth is not available.")
                     }
@@ -73,8 +79,7 @@ class FluetoothPlugin : FlutterPlugin, MethodCallHandler {
                     val arguments: Any = call.arguments
                     if (arguments is Map<*, *>) {
                         val bytes: ByteArray = arguments["bytes"] as ByteArray
-                        val chunkSize: Int? = arguments["chunkSize"] as? Int
-                        _writeBytes(bytes, chunkSize)
+                        _fluetoothManager!!.send(bytes)
                     } else {
                         throw IllegalArgumentException("arguments should be a Map")
                     }
@@ -90,38 +95,9 @@ class FluetoothPlugin : FlutterPlugin, MethodCallHandler {
         }
     }
 
-    private fun _writeBytes(bytes: ByteArray, chunkSize: Int? = null) {
-        if (chunkSize != null && chunkSize > 0 && chunkSize < bytes.size) {
-            val chunks: Int = bytes.size / chunkSize
-            val lastChunk: Int = bytes.size % chunkSize
-            for (i in 0..chunks) {
-                _fluetoothManager!!.writeBytes(
-                    bytes.copyOfRange(
-                        i * chunkSize,
-                        (i + 1) * chunkSize
-                    )
-                )
-                _fluetoothManager!!.flush()
-            }
-            if (lastChunk > 0) {
-                _fluetoothManager!!.writeBytes(
-                    bytes.copyOfRange(
-                        chunks * chunkSize,
-                        bytes.size
-                    )
-                )
-                _fluetoothManager!!.flush()
-            }
-        } else {
-            _fluetoothManager!!.writeBytes(bytes)
-            _fluetoothManager!!.flush()
-        }
-    }
-
     override fun onDetachedFromEngine(@NonNull binding: FlutterPluginBinding) {
-        channel.setMethodCallHandler(null)
+        _channel.setMethodCallHandler(null)
         _fluetoothManager!!.disconnect()
-        _context = null
         _fluetoothManager = null
     }
 }
