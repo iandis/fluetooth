@@ -21,12 +21,16 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
+def flutterMinSdk = localProperties.getProperty('flutter.minSdkVersion').toInteger()
+def flutterTargetSdk = localProperties.getProperty('flutter.targetSdkVersion').toInteger()
+def flutterCompileSdk = localProperties.getProperty('flutter.compileSdkVersion').toInteger()
+
 apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 
 android {
-    compileSdkVersion flutter.compileSdkVersion
+    compileSdkVersion flutterCompileSdk
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
@@ -44,8 +48,8 @@ android {
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId "app.iandis.fluetooth_example"
-        minSdkVersion flutter.minSdkVersion
-        targetSdkVersion flutter.targetSdkVersion
+        minSdkVersion flutterMinSdk
+        targetSdkVersion flutterTargetSdk
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }
