@@ -17,13 +17,12 @@ class FluetoothManager(private val _adapter: BluetoothAdapter?) {
     private var _connectedDevice: BluetoothDevice? = null
     private var _socket: BluetoothSocket? = null
     private var _outputStream: OutputStream? = null
-    private val _executorService: ExecutorService = Executors.newSingleThreadExecutor()
-    private val _executor: Executor = SerialExecutor(_executorService)
+    private val _executor: Executor = SerialExecutor(Executors.newSingleThreadExecutor())
 
     /**
      * @return **true** when enabled, **false** when disabled, **null** when not supported
      * */
-    val isAvailable: Boolean? get() = _adapter?.isEnabled
+    val isAvailable: Boolean get() = _adapter?.isEnabled ?: false
 
     val isConnected: Boolean
         get() {
@@ -41,10 +40,7 @@ class FluetoothManager(private val _adapter: BluetoothAdapter?) {
         val bondedDevices: Set<BluetoothDevice> = _adapter!!.bondedDevices
         if (bondedDevices.isNotEmpty()) {
             for (device: BluetoothDevice in bondedDevices) {
-                val deviceMap: MutableMap<String, String> = mutableMapOf()
-                deviceMap["name"] = device.name
-                deviceMap["address"] = device.address
-                devicesMap.add(deviceMap)
+                devicesMap.add(device.toMap())
             }
         }
         return devicesMap
@@ -119,6 +115,6 @@ class FluetoothManager(private val _adapter: BluetoothAdapter?) {
 
     fun dispose() {
         disconnect()
-        _executorService.shutdown()
+        _executor.shutdown()
     }
 }
