@@ -9,7 +9,7 @@ class FluetoothImpl implements Fluetooth {
   static const FluetoothImpl _instance = FluetoothImpl._();
 
   @override
-  Future<FluetoothDevice> connect(String deviceAddress) {
+  Future<FluetoothDevice> connect(String deviceId) {
     throw UnsupportedError('Fluetooth is not supported on this platform');
   }
 
@@ -24,12 +24,12 @@ class FluetoothImpl implements Fluetooth {
   }
 
   @override
-  Future<List<FluetoothDevice>> getPairedDevices() {
+  Future<List<FluetoothDevice>> getAvailableDevices() {
     throw UnsupportedError('Fluetooth is not supported on this platform');
   }
 
   @override
-  Future<bool?> get isAvailable {
+  Future<bool> get isAvailable {
     throw UnsupportedError('Fluetooth is not supported on this platform');
   }
 

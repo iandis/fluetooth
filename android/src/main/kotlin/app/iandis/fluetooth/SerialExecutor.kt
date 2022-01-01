@@ -3,7 +3,7 @@ package app.iandis.fluetooth
 import java.util.*
 import java.util.concurrent.Executor
 
-class SerialExecutor(private val _executor: Executor) : Executor {
+class SerialExecutor(private val _executor: ExecutorService) : Executor {
     private val _tasks: Queue<Runnable> = ArrayDeque()
     private var _active: Runnable? = null
 
@@ -27,6 +27,10 @@ class SerialExecutor(private val _executor: Executor) : Executor {
         if (_active != null) {
             _executor.execute(_active);
         }
+    }
+
+    fun shutdown() {
+        _executor.shutdown()
     }
 
 }
