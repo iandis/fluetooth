@@ -62,7 +62,7 @@ class _MyAppState extends State<MyApp> {
       return;
     }
     setState(() => _isBusy = true);
-    final List<FluetoothDevice> devices = await Fluetooth().getPairedDevices();
+    final List<FluetoothDevice> devices = await Fluetooth().getAvailableDevices();
     setState(() {
       _devices = devices;
       _isBusy = false;
@@ -75,7 +75,7 @@ class _MyAppState extends State<MyApp> {
     }
     setState(() => _isBusy = true);
     final FluetoothDevice connectedDevice = await Fluetooth().connect(
-      device.address,
+      device.id,
     );
 
     setState(() {
@@ -176,23 +176,23 @@ class _MyAppState extends State<MyApp> {
           ),
         ],
       ),
-      body: _devices == null
+      body: _devices == null || _devices!.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : ListView.builder(
               itemBuilder: (_, int index) {
                 final FluetoothDevice currentDevice = _devices![index];
                 return ListTile(
                   title: Text(currentDevice.name),
-                  subtitle: Text(currentDevice.address),
+                  subtitle: Text(currentDevice.id),
                   trailing: ElevatedButton(
                     onPressed:
-                        _connectedDevice?.address == currentDevice.address
+                        _connectedDevice == currentDevice
                             ? _disconnect
                             : _connectedDevice == null && !_isBusy
                                 ? () => _connect(currentDevice)
                                 : null,
                     child: Text(
-                      _connectedDevice?.address == currentDevice.address
+                      _connectedDevice == currentDevice
                           ? 'Disconnect'
                           : 'Connect',
                     ),
