@@ -12,23 +12,9 @@ class DeferredExecutor {
     private let _dispatcher: DispatchQueue = DispatchQueue(
         label: "fluetooth-executor",
         qos: .background
-//        attributes: DispatchQueue.Attributes(),
-//        autoreleaseFrequency: .inherit,
-//        target: DispatchQueue.global(qos: .background)
     )
     private var _tasks: [() -> Void] = []
     private var _activeTask: (() -> Void)?
-//    private var _canNext: Bool = false
-//    var isActivated: Bool {
-//        get {
-//            return _canNext
-//        }
-//    }
-//
-//    func activate() {
-//        _canNext = true
-//        next()
-//    }
 
     func add(
         onCompleteNext: Bool = false,
