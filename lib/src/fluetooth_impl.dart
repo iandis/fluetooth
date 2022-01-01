@@ -15,9 +15,9 @@ class FluetoothImpl implements Fluetooth {
   static const MethodChannel _channel = MethodChannel('fluetooth/main');
 
   @override
-  Future<FluetoothDevice> connect(String deviceAddress) async {
-    final Map<Object?, Object?>? device = await _channel
-        .invokeMethod<Map<Object?, Object?>>('connect', deviceAddress);
+  Future<FluetoothDevice> connect(String deviceId) async {
+    final Map<Object?, Object?>? device =
+        await _channel.invokeMethod<Map<Object?, Object?>>('connect', deviceId);
 
     return FluetoothDevice.fromMap(Map<String, String>.from(device!));
   }
@@ -38,12 +38,12 @@ class FluetoothImpl implements Fluetooth {
   }
 
   @override
-  Future<List<FluetoothDevice>> getPairedDevices() async {
-    final List<Map<Object?, Object?>>? pairedDevices = await _channel
-        .invokeListMethod<Map<Object?, Object?>>('getPairedDevices');
+  Future<List<FluetoothDevice>> getAvailableDevices() async {
+    final List<Map<Object?, Object?>>? availableDevices = await _channel
+        .invokeListMethod<Map<Object?, Object?>>('getAvailableDevices');
 
-    if (pairedDevices != null) {
-      return pairedDevices.map<FluetoothDevice>((Map<Object?, Object?> map) {
+    if (availableDevices != null) {
+      return availableDevices.map<FluetoothDevice>((Map<Object?, Object?> map) {
         return FluetoothDevice.fromMap(Map<String, String>.from(map));
       }).toList(growable: false);
     }
@@ -51,13 +51,13 @@ class FluetoothImpl implements Fluetooth {
   }
 
   @override
-  Future<bool?> get isAvailable {
-    return _channel.invokeMethod<bool?>('isAvailable');
+  Future<bool> get isAvailable async {
+    return await _channel.invokeMethod<bool>('isAvailable') ?? false;
   }
 
   @override
   Future<bool> get isConnected async {
-    return await _channel.invokeMethod<bool>('isAvailable') ?? false;
+    return await _channel.invokeMethod<bool>('isConnected') ?? false;
   }
 
   @override
