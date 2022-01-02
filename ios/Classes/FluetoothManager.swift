@@ -112,7 +112,7 @@ class FluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
                 }
                 
                 guard let characteristic: CBCharacteristic = self?._connectedDeviceCharacteristic else {
-                    throw FluetoothError(message: "The printer does not support receiving bytes!")
+                    throw FluetoothError(message: "The device does not support receiving bytes!")
                 }
                 
                 connectedDevice.writeValue(

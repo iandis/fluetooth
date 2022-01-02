@@ -74,7 +74,7 @@ Connect to a printer.
 ```dart
 ...
 final FluetoothDevice printer = devices.first;
-await Fluetooth().connect(devices.id);
+await Fluetooth().connect(printer.id);
 ```
 
 Prints the bill to the printer

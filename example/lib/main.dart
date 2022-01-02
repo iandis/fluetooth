@@ -7,20 +7,6 @@ import 'package:image/image.dart' as img;
 
 import 'package:fluetooth/fluetooth.dart';
 
-class MultiPosComponents implements PosComponent {
-  const MultiPosComponents(this.components);
-  final List<PosComponent> components;
-
-  @override
-  List<int> generate(Generator generator) {
-    final List<int> bytes = <int>[];
-    for (final PosComponent component in components) {
-      bytes.addAll(component.generate(generator));
-    }
-    return bytes;
-  }
-}
-
 void main() {
   runApp(
     const MaterialApp(
