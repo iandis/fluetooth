@@ -116,10 +116,10 @@ class _MyAppState extends State<MyApp> {
       PosImage(image: resizedImg),
       const PosText.center('My Store'),
       const PosSeparator(),
-      PosListComponent.builder(
+      PosList.builder(
         count: 20,
         builder: (int i) {
-          return PosListComponent(
+          return PosList(
             <PosComponent>[
               PosRow.leftRightText(
                 leftText: 'Product $i',
