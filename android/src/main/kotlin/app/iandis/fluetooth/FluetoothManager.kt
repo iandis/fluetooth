@@ -7,8 +7,6 @@ import java.io.OutputStream
 import java.lang.Exception
 import java.util.UUID
 import java.util.concurrent.Executor
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 
 class FluetoothManager(private val _adapter: BluetoothAdapter?) {
 
@@ -17,7 +15,7 @@ class FluetoothManager(private val _adapter: BluetoothAdapter?) {
     private var _connectedDevice: BluetoothDevice? = null
     private var _socket: BluetoothSocket? = null
     private var _outputStream: OutputStream? = null
-    private val _executor: Executor = SerialExecutor(Executors.newSingleThreadExecutor())
+    private val _executor: SerialExecutor = SerialExecutor()
 
     /**
      * @return **true** when enabled, **false** when disabled, **null** when not supported
@@ -35,7 +33,7 @@ class FluetoothManager(private val _adapter: BluetoothAdapter?) {
     val connectedDevice: Map<String, String>?
         get() = _connectedDevice?.toMap()
 
-    fun getPairedDevices(): List<Map<String, String>> {
+    fun getAvailableDevices(): List<Map<String, String>> {
         val devicesMap: MutableList<Map<String, String>> = mutableListOf()
         val bondedDevices: Set<BluetoothDevice> = _adapter!!.bondedDevices
         if (bondedDevices.isNotEmpty()) {
@@ -82,21 +80,18 @@ class FluetoothManager(private val _adapter: BluetoothAdapter?) {
             }
         }
 
+        if (_connectedDevice == null) {
+            onResult(null)
+            return
+        }
+
         _executor.execute {
             try {
-                if (_connectedDevice != null) {
-                    _socket = _connectedDevice!!.createRfcommSocketToServiceRecord(_uuid)
-                    _socket!!.connect()
-                    _outputStream = _socket!!.outputStream
-                }
+                _socket = _connectedDevice!!.createRfcommSocketToServiceRecord(_uuid)
+                _socket!!.connect()
+                _outputStream = _socket!!.outputStream
             } catch (_: Exception) {
-                _connectedDevice = null
-                if (_socket != null) {
-                    _outputStream?.close()
-                    _outputStream = null
-                    _socket!!.close()
-                    _socket = null
-                }
+                disconnect()
             }
 
             onResult(_connectedDevice)

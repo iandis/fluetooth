@@ -43,10 +43,10 @@ class FluetoothPlugin : FlutterPlugin, MethodCallHandler {
                     val connectedDevice: Map<String, String>? = _fluetoothManager!!.connectedDevice
                     result.success(connectedDevice)
                 }
-                "getPairedDevices" -> {
-                    val pairedDevices: List<Map<String, String>> =
-                        _fluetoothManager!!.getPairedDevices()
-                    result.success(pairedDevices)
+                "getAvailableDevices" -> {
+                    val availableDevices: List<Map<String, String>> =
+                        _fluetoothManager!!.getAvailableDevices()
+                    result.success(availableDevices)
                 }
                 "connect" -> {
                     if (_fluetoothManager!!.isAvailable != true) {
