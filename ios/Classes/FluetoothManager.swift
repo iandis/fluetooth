@@ -225,11 +225,16 @@ class FluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         didDiscoverCharacteristicsFor service: CBService,
         error: Error?
     ) {
-        for characteristic in service.characteristics! {
-            if characteristic.properties.contains(.writeWithoutResponse) {
-                _connectedDeviceCharacteristic = characteristic
-                break
+        if let characteristics: [CBCharacteristic] = service.characteristics {
+            for characteristic in characteristics {
+                let props: CBCharacteristicProperties = characteristic.properties
+                if props.contains(.writeWithoutResponse) || props.contains(.write) {
+                    _connectedDeviceCharacteristic = characteristic
+                    break
+                }
             }
+        } else {
+            _connectedDeviceCharacteristic = nil
         }
         
     }
