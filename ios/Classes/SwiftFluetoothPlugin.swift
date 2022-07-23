@@ -17,7 +17,6 @@ public class SwiftFluetoothPlugin: NSObject, FlutterPlugin {
         )
         
         let fluetoothMgr: FluetoothManager = FluetoothManager()
-        fluetoothMgr.initialize()
         let instance: SwiftFluetoothPlugin = SwiftFluetoothPlugin(fluetoothMgr)
         registrar.addMethodCallDelegate(instance, channel: channel)
     }

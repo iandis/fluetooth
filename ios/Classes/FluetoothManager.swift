@@ -49,7 +49,8 @@ class FluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     private var _connectedDeviceService: CBService?
     private var _connectedDeviceCharacteristic: CBCharacteristic?
 
-    func initialize() {
+    override init() {
+        super.init()
         _btManager = CBCentralManager(
             delegate: self,
             queue: .global(qos: .background)
