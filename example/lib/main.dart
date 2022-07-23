@@ -48,6 +48,12 @@ class _MyAppState extends State<MyApp> {
       return;
     }
     setState(() => _isBusy = true);
+    if (!await Fluetooth().isAvailable) {
+      setState(() {
+        _isBusy = false;
+      });
+      return;
+    }
     final List<FluetoothDevice> devices = await Fluetooth().getAvailableDevices();
     setState(() {
       _devices = devices;
@@ -103,7 +109,7 @@ class _MyAppState extends State<MyApp> {
       const PosText.center('My Store'),
       const PosSeparator(),
       PosList.builder(
-        count: 20,
+        count: 40,
         builder: (int i) {
           return PosList(
             <PosComponent>[
