@@ -15,6 +15,12 @@ class DeferredExecutor {
     )
     private var _tasks: [() -> Void] = []
     private var _activeTask: (() -> Void)?
+    
+    func now(_ callback: @escaping () throws -> Void) {
+        _dispatcher.sync {
+            try? callback()
+        }
+    }
 
     func add(
         onCompleteNext: Bool = false,
@@ -51,5 +57,10 @@ class DeferredExecutor {
                 _activeTask!()
             }
         }
+    }
+    
+    func clear() {
+        _tasks = []
+        _activeTask = nil
     }
 }

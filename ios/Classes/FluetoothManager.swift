@@ -12,14 +12,12 @@ import CoreBluetooth
 class FluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     
     private let _executor: DeferredExecutor = DeferredExecutor()
-    
-    private var _resultCallback: FlutterResult?
 
-    private var _btManager: CBCentralManager?
+    private var _centralManager: CBCentralManager?
 
     var isAvailable: Bool {
         get {
-            return _btManager?.state == .poweredOn
+            return _centralManager?.state == .poweredOn
         }
     }
     
@@ -29,13 +27,11 @@ class FluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         }
     }
     
+    private var _availableDeviceUUIDStrings: Set<String> = []
     private var _availableDevices: [CBPeripheral] = []
     private var _availableDevicesMap: [[String:String]] {
         get {
-            return _availableDevices.map({
-                (device: CBPeripheral) -> [String:String] in
-                return device.toMap()
-            })
+            return _availableDevices.map { $0.toMap() }
         }
     }
 
@@ -48,9 +44,13 @@ class FluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     
     private var _connectedDeviceService: CBService?
     private var _connectedDeviceCharacteristic: CBCharacteristic?
+    private var _dataQueue: DataQueue?
 
-    func initialize() {
-        _btManager = CBCentralManager(
+    private var _resultCallback: FlutterResult?
+
+    override init() {
+        super.init()
+        _centralManager = CBCentralManager(
             delegate: self,
             queue: .global(qos: .background)
         )
@@ -58,96 +58,144 @@ class FluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
     
     func getAvailableDevices(_ resultCallback: @escaping FlutterResult) {
         _executor.add { [weak self] in
-            self?._availableDevices.removeAll()
-            self?._btManager?.scanForPeripherals(
+            guard let self: FluetoothManager = self else {
+                return
+            }
+            if self._connectedDevice == nil {
+                self._availableDeviceUUIDStrings = []
+                self._availableDevices = []
+            } else {
+                self._availableDeviceUUIDStrings = [self._connectedDevice!.identifier.uuidString]
+                self._availableDevices = [self._connectedDevice!]
+            }
+            self._centralManager?.scanForPeripherals(
                 withServices: nil,
                 options: [
                     CBCentralManagerScanOptionAllowDuplicatesKey: false
                 ]
             )
-            self?._executor.delayed(deadline: .now() + 1) {
-                self?._btManager?.stopScan()
-                resultCallback(self?._availableDevicesMap ?? [])
+            self._executor.delayed(deadline: .now() + 1) { [weak self] in
+                guard let self: FluetoothManager = self else {
+                    return
+                }
+                self._centralManager?.stopScan()
+                resultCallback(self._availableDevicesMap)
             }
         }
     }
     
     func connect(uuidString: String, resultCallback: @escaping FlutterResult) {
         _executor.add { [weak self] in
-            do {
-                let uuid: UUID = UUID(uuidString: uuidString)!
-                
-                guard let peripheral: CBPeripheral = self?._availableDevices.first(where: {
-                    (peripheral: CBPeripheral) -> Bool in
-                    return peripheral.identifier == uuid
-                }) else {
-                    throw FluetoothError(message: "Device not found!")
-                }
-                
-                self?._resultCallback = resultCallback
-                self?._btManager?.connect(peripheral)
-                                      
-            } catch let e as FluetoothError {
-                resultCallback(e.toFlutterError())
-            } catch let e {
-                resultCallback(FlutterError(
-                    code: "FLUETOOTH_ERROR",
-                    message: e.localizedDescription,
-                    details: "connect"
-                ))
+            guard let self: FluetoothManager = self else {
+                return
             }
+            
+            let uuid: UUID = UUID(uuidString: uuidString)!
+            
+            guard let peripheral: CBPeripheral = self._availableDevices.first(
+                where: { $0.identifier == uuid }
+            ) else {
+                resultCallback(FluetoothError(message: "Device not found").toFlutterError())
+                return
+            }
+            
+            self._resultCallback = resultCallback
+            self._centralManager?.connect(peripheral)
         }
         
     }
     
     func sendBytes(_ bytes: Data, resultCallback: @escaping FlutterResult) {
-        _executor.add(onCompleteNext: true) { [weak self] in
-            do {
-                guard let connectedDevice: CBPeripheral = self?._connectedDevice else {
-                    throw FluetoothError(message: "No device connected!")
+        _executor.add { [weak self] in
+            guard let self: FluetoothManager = self else {
+                return
+            }
+            guard let connectedDevice: CBPeripheral = self._connectedDevice else {
+                resultCallback(FluetoothError(message: "No device connected").toFlutterError())
+                self._executor.next()
+                return
+            }
+            guard let characteristic: CBCharacteristic = self._connectedDeviceCharacteristic else {
+                resultCallback(FluetoothError(message: "Failed to discover device characteristics").toFlutterError())
+                self._executor.next()
+                return
+            }
+            
+            let isDeviceSupportWriteWithResponse: Bool = characteristic.properties.contains(.write)
+            if isDeviceSupportWriteWithResponse {
+                let maxBytesPerWrite: Int = connectedDevice.maximumWriteValueLength(
+                    for: .withResponse
+                )
+                let dataQueue: DataQueue = DataQueue(
+                    maxChunkSize: maxBytesPerWrite,
+                    bytes: bytes
+                )
+                guard let firstChunk: Data = dataQueue.next() else {
+                    resultCallback(true)
+                    self._executor.next()
+                    return
                 }
-                
-                if self?._connectedDeviceService == nil {
-                    throw FluetoothError(message: "Failed to send bytes!")
-                }
-                
-                guard let characteristic: CBCharacteristic = self?._connectedDeviceCharacteristic else {
-                    throw FluetoothError(message: "The device does not support receiving bytes!")
-                }
-                
+                connectedDevice.writeValue(
+                    firstChunk,
+                    for: characteristic,
+                    type: .withResponse
+                )
+                self._dataQueue = dataQueue
+                self._resultCallback = resultCallback
+                return
+            }
+            
+            let canSendWriteWithoutResponse: Bool
+            if #available(iOS 11.0, *) {
+                canSendWriteWithoutResponse = connectedDevice.canSendWriteWithoutResponse
+            } else {
+                canSendWriteWithoutResponse = true
+            }
+            let canDeviceWriteWithoutResponse: Bool = characteristic.properties.contains(.writeWithoutResponse) && canSendWriteWithoutResponse
+            if canDeviceWriteWithoutResponse {
                 connectedDevice.writeValue(
                     bytes,
                     for: characteristic,
                     type: .withoutResponse
                 )
-                
                 resultCallback(true)
-                
-            } catch let e as FluetoothError {
-                resultCallback(e.toFlutterError())
-            } catch let e {
-                resultCallback(FlutterError(
-                    code: "FLUETOOTH_ERROR",
-                    message: e.localizedDescription,
-                    details: nil
-                ))
+                self._executor.next()
+                return
             }
             
+            resultCallback(FluetoothError(message: "The device does not support receiving bytes").toFlutterError())
+            self._executor.next()
         }
-    }
-    
-    func disconnect(_ resultCallback: @escaping FlutterResult) {
-        guard let connectedDevice: CBPeripheral = _connectedDevice else {
-            return
-        }
-        _executor.add { [weak self] in
-            self?._resultCallback = resultCallback
-            self?._btManager?.cancelPeripheralConnection(connectedDevice)
-        }
-        
     }
 
-    func centralManagerDidUpdateState(_ central: CBCentralManager) {}
+    func disconnect(_ resultCallback: @escaping FlutterResult) {
+        _executor.add { [weak self] in
+            guard let self: FluetoothManager = self,
+                  let connectedDevice: CBPeripheral = self._connectedDevice
+            else {
+                return
+            }
+            self._resultCallback = resultCallback
+            self._centralManager?.cancelPeripheralConnection(connectedDevice)
+        }
+    }
+
+    func centralManagerDidUpdateState(_ central: CBCentralManager) {
+        switch central.state {
+        case .resetting, .poweredOff:
+            _connectedDevice = nil
+            _connectedDeviceService = nil
+            _connectedDeviceCharacteristic = nil
+            _availableDevices = []
+            _availableDeviceUUIDStrings = []
+            _executor.clear()
+            _resultCallback?(FluetoothError(message: "Bluetooth powered off").toFlutterError())
+            _resultCallback = nil
+        default:
+            // no-op
+            return
+        }
+    }
     
     func centralManager(
         _ central: CBCentralManager,
@@ -196,21 +244,19 @@ class FluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         advertisementData: [String : Any],
         rssi RSSI: NSNumber
     ) {
-        let alreadyExists: Bool = _availableDevices.contains(
-            where: { $0.identifier == peripheral.identifier }
-        )
-        if !alreadyExists {
-            _availableDevices.append(peripheral)
+        let peripheralUuidString: String = peripheral.identifier.uuidString
+        guard !_availableDeviceUUIDStrings.contains(peripheralUuidString) else {
+            return
         }
+        _availableDeviceUUIDStrings.insert(peripheralUuidString)
+        _availableDevices.append(peripheral)
     }
     
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
-        guard let services: [CBService] = peripheral.services, error == nil else {
-            _connectedDeviceService = nil
-            return
-        }
-        
-        guard let service: CBService = services.first(where: { $0.isPrimary }) else {
+        guard let services: [CBService] = peripheral.services,
+              error == nil,
+              let service: CBService = services.first(where: { $0.isPrimary })
+        else {
             _connectedDeviceService = nil
             return
         }
@@ -224,13 +270,57 @@ class FluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         didDiscoverCharacteristicsFor service: CBService,
         error: Error?
     ) {
-        for characteristic in service.characteristics! {
-            if characteristic.properties.contains(.writeWithoutResponse) {
+        guard error == nil,
+              let characteristics: [CBCharacteristic] = service.characteristics
+        else {
+            _connectedDeviceCharacteristic = nil
+            return
+        }
+        
+        for characteristic in characteristics {
+            let props: CBCharacteristicProperties = characteristic.properties
+            if props.contains(.write) || props.contains(.writeWithoutResponse) {
                 _connectedDeviceCharacteristic = characteristic
                 break
             }
         }
         
     }
-
+    
+    func peripheral(
+        _ peripheral: CBPeripheral,
+        didWriteValueFor characteristic: CBCharacteristic,
+        error: Error?
+    ) {
+        guard let dataQueue: DataQueue = _dataQueue else {
+            return
+        }
+        
+        if let e: Error = error {
+            _dataQueue = nil
+            _resultCallback?(FluetoothError(message: e.localizedDescription).toFlutterError())
+            _resultCallback = nil
+            _executor.next()
+            return
+        }
+        
+        if dataQueue.isComplete {
+            _dataQueue = nil
+            _resultCallback?(true)
+            _resultCallback = nil
+            _executor.next()
+            return
+        }
+        
+        _executor.now {
+            guard let nextChunk: Data = dataQueue.next() else {
+                return
+            }
+            peripheral.writeValue(
+                nextChunk,
+                for: characteristic,
+                type: .withResponse
+            )
+        }
+    }
 }
