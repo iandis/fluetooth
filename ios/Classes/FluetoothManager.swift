@@ -135,13 +135,13 @@ class FluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
                     self._executor.next()
                     return
                 }
+                self._dataQueue = dataQueue
+                self._resultCallback = resultCallback
                 connectedDevice.writeValue(
                     firstChunk,
                     for: characteristic,
                     type: .withResponse
                 )
-                self._dataQueue = dataQueue
-                self._resultCallback = resultCallback
                 return
             }
             
