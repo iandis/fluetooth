@@ -189,6 +189,7 @@ class FluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
             _availableDevices = []
             _availableDeviceUUIDStrings = []
             _executor.clear()
+            _dataQueue = nil
             _resultCallback?(FluetoothError(message: "Bluetooth powered off").toFlutterError())
             _resultCallback = nil
         default:
@@ -220,6 +221,7 @@ class FluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         _connectedDevice = nil
         _connectedDeviceService = nil
         _connectedDeviceCharacteristic = nil
+        _dataQueue = nil
         _resultCallback?(error ?? true)
         _resultCallback = nil
         _executor.next()
