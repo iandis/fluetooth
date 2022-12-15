@@ -9,10 +9,10 @@ import Foundation
 import CoreBluetooth
 
 class DataQueue {
-//    private static let _MAX_ATT_MTU: Int = 251
+    private static let _MAX_ATT_MTU: Int = 240
 
     init(maxChunkSize: Int, bytes: Data)  {
-        self.maxChunkSize = maxChunkSize / 2
+        self.maxChunkSize = min(maxChunkSize, DataQueue._MAX_ATT_MTU)
         _bytesToWrite = bytes.count
         _bytes = bytes
     }
