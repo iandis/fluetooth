@@ -222,7 +222,7 @@ class FluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         _connectedDeviceService = nil
         _connectedDeviceCharacteristic = nil
         _dataQueue = nil
-        _resultCallback?(error ?? true)
+        _resultCallback?(error?.toFlutterError() ?? true)
         _resultCallback = nil
         _executor.next()
     }
@@ -235,7 +235,10 @@ class FluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
         _connectedDevice = nil
         _connectedDeviceService = nil
         _connectedDeviceCharacteristic = nil
-        _resultCallback?(error)
+        _dataQueue = nil
+        if let error: Error = error {
+            _resultCallback?(error.toFlutterError())
+        }
         _resultCallback = nil
         _executor.next()
     }
@@ -298,9 +301,9 @@ class FluetoothManager: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate
             return
         }
         
-        if let e: Error = error {
+        if let error: Error = error {
             _dataQueue = nil
-            _resultCallback?(FluetoothError(message: e.localizedDescription).toFlutterError())
+            _resultCallback?(error.toFlutterError())
             _resultCallback = nil
             _executor.next()
             return

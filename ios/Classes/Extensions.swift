@@ -16,3 +16,10 @@ extension CBPeripheral {
         ]
     }
 }
+
+extension Error {
+    
+    func toFlutterError() -> FlutterError {
+        return FluetoothError(message: localizedDescription).toFlutterError()
+    }
+}
