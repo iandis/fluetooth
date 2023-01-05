@@ -11,7 +11,7 @@ class FluetoothDevice {
 
   /// The name of this Bluetooth device.
   /// 
-  /// Note that on iOS, [name] can be "Unknown"
+  /// Note that on iOS, [name] can be empty
   final String name;
 
   factory FluetoothDevice.fromMap(Map<String, dynamic> map) {
@@ -31,5 +31,5 @@ class FluetoothDevice {
   }
 
   @override
-  int get hashCode => id.hashCode ^ name.hashCode;
+  int get hashCode => Object.hash(id, name);
 }

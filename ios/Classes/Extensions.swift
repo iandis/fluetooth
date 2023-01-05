@@ -11,8 +11,15 @@ extension CBPeripheral {
     
     func toMap() -> [String: String] {
         return [
-            "name": name ?? "Unknown",
+            "name": name ?? "",
             "id": identifier.uuidString
         ]
+    }
+}
+
+extension Error {
+    
+    func toFlutterError() -> FlutterError {
+        return FluetoothError(message: localizedDescription).toFlutterError()
     }
 }
