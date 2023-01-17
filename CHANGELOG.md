@@ -1,3 +1,7 @@
+## 0.0.4
+
+- [fix(android): add runtime permission for BLUETOOTH_CONNECT for Android 12](https://github.com/iandis/fluetooth/pull/11)
+
 ## 0.0.3
 
 - [refactor(ios): implement byte chunking on iOS CoreBluetooth API](https://github.com/iandis/fluetooth/pull/9)
