@@ -54,18 +54,16 @@ class FluetoothPlugin : FlutterPlugin, MethodCallHandler {
                     }
                     val targetDevice: Any = call.arguments
                     if (targetDevice is String) {
-                        _fluetoothManager!!.connect(targetDevice) { device ->
-                            val connectedDevice: Map<String, String>? = device?.toMap()
-                            if (connectedDevice != null) {
-                                result.success(connectedDevice)
-                            } else {
-                                result.error(
-                                    "FLUETOOTH_CONNECT_ERROR",
-                                    "Failed to connect to $targetDevice",
-                                    null
-                                )
-                            }
-                        }
+                        _fluetoothManager!!.connect(targetDevice, { device ->
+                            val connectedDevice: Map<String, String> = device.toMap()
+                            result.success(connectedDevice)
+                        }, {
+                            result.error(
+                                "FLUETOOTH_CONNECT_ERROR",
+                                "Failed to connect to $targetDevice",
+                                null
+                            )
+                        })
                     } else {
                         throw IllegalArgumentException("targetDevice should be a string")
                     }
@@ -84,9 +82,11 @@ class FluetoothPlugin : FlutterPlugin, MethodCallHandler {
                     val arguments: Any = call.arguments
                     if (arguments is Map<*, *>) {
                         val bytes: ByteArray = arguments["bytes"] as ByteArray
-                        _fluetoothManager!!.send(bytes) {
+                        _fluetoothManager!!.send(bytes, {
                             result.success(true)
-                        }
+                        }, {
+                            result.error("FLUETOOTH_ERROR", it.message, it.cause)
+                        })
                     } else {
                         throw IllegalArgumentException("arguments should be a Map")
                     }

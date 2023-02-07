@@ -6,7 +6,6 @@ import android.bluetooth.BluetoothSocket
 import java.io.OutputStream
 import java.lang.Exception
 import java.util.UUID
-import java.util.concurrent.Executor
 
 class FluetoothManager(private val _adapter: BluetoothAdapter?) {
 
@@ -23,12 +22,7 @@ class FluetoothManager(private val _adapter: BluetoothAdapter?) {
     val isAvailable: Boolean get() = _adapter?.isEnabled ?: false
 
     val isConnected: Boolean
-        get() {
-            if (_socket != null) {
-                return _socket!!.isConnected
-            }
-            return false
-        }
+        get() = _socket?.isConnected == true
 
     val connectedDevice: Map<String, String>?
         get() = _connectedDevice?.toMap()
@@ -44,31 +38,32 @@ class FluetoothManager(private val _adapter: BluetoothAdapter?) {
         return devicesMap
     }
 
-    private fun _writeBytes(bytes: ByteArray) {
-        if (_outputStream == null) {
-            throw Exception("No device connected!")
-        }
-        _outputStream!!.write(bytes)
-    }
-
-    private fun _flush() {
-        if (_outputStream == null) {
-            throw Exception("No device connected!")
-        }
-        _outputStream!!.flush()
-    }
-
-    fun send(bytes: ByteArray, onComplete: () -> Unit) {
+    fun send(bytes: ByteArray, onComplete: () -> Unit, onError: (Throwable) -> Unit) {
         _executor.execute {
-            _writeBytes(bytes)
-            _flush()
-            onComplete()
+            try {
+                if (!isConnected || _outputStream == null) {
+                    onError(Exception("No device connected!"))
+                    return@execute
+                }
+                _outputStream?.write(bytes)
+                _outputStream?.flush()
+                onComplete()
+            } catch (t: Throwable) {
+                onError(t)
+            }
         }
     }
 
     @Synchronized
-    fun connect(deviceAddress: String, onResult: (BluetoothDevice?) -> Unit) {
-        disconnect()
+    fun connect(
+        deviceAddress: String,
+        onResult: (BluetoothDevice) -> Unit,
+        onError: (Throwable) -> Unit
+    ) {
+        if (!_disconnectIfNewAddress(deviceAddress)) {
+            onResult(_connectedDevice!!)
+            return
+        }
 
         val bondedDevices: Set<BluetoothDevice> = _adapter!!.bondedDevices
         if (bondedDevices.isNotEmpty()) {
@@ -81,31 +76,49 @@ class FluetoothManager(private val _adapter: BluetoothAdapter?) {
         }
 
         if (_connectedDevice == null) {
-            onResult(null)
+            onError(Exception("Device not found"))
             return
         }
 
         _executor.execute {
             try {
-                _socket = _connectedDevice!!.createRfcommSocketToServiceRecord(_uuid)
-                _socket!!.connect()
-                _outputStream = _socket!!.outputStream
-            } catch (_: Exception) {
+                _connect()
+                onResult(_connectedDevice!!)
+            } catch (t: Throwable) {
                 disconnect()
+                onError(t)
             }
-
-            onResult(_connectedDevice)
         }
     }
 
+    fun _closeSocket() {
+        _outputStream?.close()
+        _outputStream = null
+        _socket?.close()
+        _socket = null
+    }
+
+    fun _connect() {
+        _socket = _connectedDevice?.createRfcommSocketToServiceRecord(_uuid)
+        _socket?.connect()
+        _outputStream = _socket?.outputStream
+        _socket?.inputStream?.reader().
+    }
+
+    /**
+     *
+     * @return **true** when disconnects, **false** when already connected to device with
+     * the same address
+     */
+    private fun _disconnectIfNewAddress(deviceAddress: String): Boolean {
+        if (_connectedDevice?.address == deviceAddress && isConnected) return false
+        disconnect()
+        return true
+    }
+
     fun disconnect() {
-        if (_socket != null) {
-            _outputStream?.close()
-            _outputStream = null
-            _socket!!.close()
-            _socket = null
-            _connectedDevice = null
-        }
+        _closeSocket()
+        _connectedDevice = null
     }
 
     fun dispose() {
