@@ -102,7 +102,6 @@ class FluetoothManager(private val _adapter: BluetoothAdapter?) {
         _socket = _connectedDevice?.createRfcommSocketToServiceRecord(_uuid)
         _socket?.connect()
         _outputStream = _socket?.outputStream
-        _socket?.inputStream?.reader().
     }
 
     /**
